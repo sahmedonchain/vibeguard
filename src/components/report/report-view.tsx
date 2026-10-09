@@ -11,7 +11,9 @@ import { Card } from "@/components/ui/card";
 import { SEVERITIES } from "@/lib/risk-engine/types";
 import type { ScanReport } from "@/lib/scans/report";
 import { safeText } from "@/lib/text";
+import { CreationsList, CreatorFacts } from "./creator-facts";
 import { FindingCard } from "./finding-card";
+import { HolderHistoryView } from "./holder-extras";
 import { HoldersChart, type ChartHolder } from "./holders-chart";
 import type { RiskLevel } from "@/lib/risk-engine/methodology";
 
@@ -168,13 +170,43 @@ export function ReportView({ report }: { report: ScanReport }) {
                   <tr key={h.address} className="border-t border-border">
                     <td className="px-3 py-2 tabular-nums">{i + 1}</td>
                     <td className="px-3 py-2"><AddressDisplay address={h.address} /></td>
-                    <td className="px-3 py-2 capitalize">{h.class === "eoa" ? "wallet" : h.class}</td>
+                    <td className="px-3 py-2"><span className="capitalize">{h.class === "eoa" ? "wallet" : h.class}</span>{h.label && <span className="block text-xs text-muted-foreground">{h.label}</span>}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{pct(h.bps)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Contract holders are labelled only when the address equals this token or the contract that created it. Pools, bonding curves and vaults cannot be identified because no verified DEX or launchpad registry exists for this network, so no balance is reported as a &quot;known liquidity pool&quot;.
+          </p>
+          {report.holderHistory && <HolderHistoryView history={report.holderHistory} />}
+        </section>
+      )}
+
+      {report.creator && report.token?.creator && (
+        <section aria-labelledby="creator-h" className="space-y-3">
+          <h2 id="creator-h" className="text-xl font-semibold">Creator</h2>
+          <Card className="space-y-4">
+            <CreatorFacts facts={report.creator} />
+            {report.creator.explorerAvailable && <CreationsList facts={report.creator} />}
+            {report.creator.sellDown && (
+              <p className="text-sm">Creator&apos;s share of supply: peak {pct(report.creator.sellDown.peakBps)}, now {pct(report.creator.sellDown.currentBps)}.</p>
+            )}
+            <p className="text-sm"><Link className="underline" href={`/creator/${report.token.creator}`}>Full creator reputation</Link></p>
+          </Card>
+        </section>
+      )}
+
+      {report.sybil && report.sybil.clusters.length > 0 && (
+        <section aria-labelledby="coord-h" className="space-y-3">
+          <h2 id="coord-h" className="text-xl font-semibold">Possible coordination</h2>
+          <ul className="space-y-2 text-sm">
+            {report.sybil.clusters.slice(0, 3).map((c) => (
+              <li key={c.id}><span className="font-medium">{c.label}</span> — {c.members.length} wallets, {pct(c.combinedBps)} of supply, {c.confidence} confidence ({c.signals.map((x) => x.label.toLowerCase()).join("; ")}).</li>
+            ))}
+          </ul>
+          <p className="text-sm"><Link className="underline" href={`/sybil?token=${report.token?.address ?? ""}`}>See evidence and alternative explanations</Link>. Similar behavior does not show a shared owner.</p>
         </section>
       )}
 

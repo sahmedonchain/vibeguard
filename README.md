@@ -2,7 +2,7 @@
 
 Evidence-backed token risk analysis for VibeVibe tokens on Robinhood Chain Testnet. Automated analysis, not an audit.
 
-Status: phase 2. Token scanner, indexer, risk engine and report pages work end to end. Holder deep-dives, creator, wallet and sybil analysis, whales, alerts, Token Doctor and the full developer docs are not built yet. See `docs/IMPLEMENTATION_STATUS.md`.
+Status: phase 3. Token scanner, indexer, risk engine, holder analysis, creator reputation, wallet DNA and coordination (sybil) analysis work end to end. Whales, momentum, alerts, Token Doctor, ecosystem view and the full developer docs are not built yet. See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Develop
 

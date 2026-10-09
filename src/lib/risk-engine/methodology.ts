@@ -5,7 +5,7 @@ import type { Category, Confidence, Severity } from "./types";
  * the /methodology page and docs/RISK_METHODOLOGY.md are all derived from or checked against them.
  * Every number is an initial product default (SRS 8.2-8.3), not a validated constant.
  */
-export const METHODOLOGY_VERSION = "1.0.0";
+export const METHODOLOGY_VERSION = "1.1.0";
 
 export const CATEGORY_WEIGHTS: Record<Category, number> = {
   contract: 0.3,
@@ -51,6 +51,44 @@ export const HOLDER_THRESHOLDS = {
   top10: { medium: 5000, high: 7500, critical: 9000 },
   creator: { medium: 1500, high: 3000, critical: 5000 },
   contractHeldInfo: 5000,
+} as const;
+
+/**
+ * Creator/deployer thresholds (VG-CRT-*). Initial product defaults, uncalibrated.
+ * "Other creations" counts are lower bounds: only a bounded window of the creator's history is read.
+ */
+export const CREATOR_THRESHOLDS = {
+  /** Creator wallet first seen less than this long before the token creation. */
+  freshWalletSeconds: 24 * 3600,
+  /** Other tokens created by the same sender through the same creation path. */
+  repeatCreations: { low: 3, medium: 10 },
+  /** Creator held at least this share at its peak and kept at most `remainingRatioBps` of that peak. */
+  sellDown: { minPeakBps: 500, remainingRatioBps: 1000 },
+  /** History pages read per scan (50 transactions each) and token-creation lookups resolved. */
+  maxCreationLookups: 20,
+} as const;
+
+/**
+ * Coordination thresholds (VG-SUS-001/002). Heuristics for behavioral similarity, not identity.
+ * Signals are grouped into independent families (funding, acquisition, consolidation).
+ */
+export const SYBIL_THRESHOLDS = {
+  /** Largest non-contract, non-burn holders examined. */
+  candidateLimit: 30,
+  /** Funding events of one funder this close together count as correlated. */
+  fundingWindowSeconds: 600,
+  /** smaller/larger funding amount must reach this ratio to count as similar. */
+  amountSimilarityMinRatio: 0.75,
+  /** Holders whose first receipt of the token falls in one window of this length. */
+  acquisitionWindowSeconds: 60,
+  acquisitionMinGroup: 3,
+  /** Larger groups are treated as launch-wide activity, not coordination. */
+  acquisitionMaxGroup: 10,
+  /** Funders with this many transactions or more are treated as hubs (exchange, faucet, bridge). */
+  hubFunderTxCount: 1000,
+  /** Cluster share of total supply (bps) below which a cluster is shown but not scored. */
+  minClusterShareBps: 1000,
+  highClusterShareBps: 2500,
 } as const;
 
 export const METHODOLOGY_DESCRIPTION =

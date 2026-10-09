@@ -52,6 +52,9 @@ export const tokens = pgTable(
     creatorAddress: address("creator_address"),
     /** How creation data was found: "explorer" | "bytecode_search" (block only). */
     creationSource: text("creation_source"),
+    /** Target and 4-byte selector of the creation transaction: how this creator's other launches are recognised. */
+    creationTo: address("creation_to"),
+    creationSelector: varchar("creation_selector", { length: 10 }),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
@@ -251,4 +254,17 @@ export const rateLimitCounters = pgTable(
     count: integer("count").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.key, t.windowStart] })],
+);
+
+/** Short-lived cache of explorer-derived profiles (wallet, creator) so repeated views do not re-query the explorer. */
+export const analysisCache = pgTable(
+  "analysis_cache",
+  {
+    chainId: integer("chain_id").notNull(),
+    kind: text("kind").notNull(),
+    address: address("address").notNull(),
+    payload: jsonb("payload").notNull(),
+    computedAt: ts("computed_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.kind, t.address] })],
 );

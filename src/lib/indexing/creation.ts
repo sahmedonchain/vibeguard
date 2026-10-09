@@ -7,6 +7,9 @@ export type Creation = {
   txHash: string | null;
   /** The account that sent the creation transaction (a fact from the chain). */
   txSender: string | null;
+  /** Target and 4-byte selector of the creation transaction (a launchpad contract and its create method, for factory launches). */
+  txTo: string | null;
+  selector: string | null;
   /** The contract/account that executed the CREATE (from the explorer, if available). */
   immediateCreator: string | null;
   source: "explorer" | "bytecode_search";
@@ -35,6 +38,8 @@ export async function findCreation(
         block: Number(receipt.blockNumber),
         txHash: hash,
         txSender: tx.from.toLowerCase(),
+        txTo: tx.to ? tx.to.toLowerCase() : null,
+        selector: tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10).toLowerCase() : null,
         immediateCreator: info.creator?.toLowerCase() ?? null,
         source: "explorer",
       };
@@ -43,7 +48,7 @@ export async function findCreation(
     }
   }
   const block = await firstBlockWithCode(client, address, headBlock);
-  return block == null ? null : { block, txHash: null, txSender: null, immediateCreator: null, source: "bytecode_search" };
+  return block == null ? null : { block, txHash: null, txSender: null, txTo: null, selector: null, immediateCreator: null, source: "bytecode_search" };
 }
 
 export async function firstBlockWithCode(

@@ -13,7 +13,7 @@ export type RouteDef = {
 export const ROUTES = {
   scan: { path: "/scan", title: "Token Scanner", description: "Scan a token address for evidence-backed risk findings.", phase: 2, nav: "primary", footer: "product", live: true },
   methodology: { path: "/methodology", title: "Methodology", description: "How risk scores and findings are computed.", phase: 2, nav: "primary", footer: "product", live: true },
-  sybil: { path: "/sybil", title: "Sybil Analysis", description: "Possible coordination between wallets, with confidence and alternatives.", phase: 3, nav: "more", footer: "product" },
+  sybil: { path: "/sybil", title: "Sybil Analysis", description: "Possible coordination between wallets, with confidence and alternatives.", phase: 3, nav: "more", footer: "product", live: true },
   whales: { path: "/whales", title: "Whale Tracker", description: "Large transfers and holder balance changes.", phase: 4, nav: "primary", footer: "product" },
   momentum: { path: "/momentum", title: "Momentum", description: "Activity trends from verified on-chain data.", phase: 4, nav: "more", footer: "product" },
   alerts: { path: "/alerts", title: "Alerts", description: "Browser notifications for watched tokens and wallets.", phase: 4, nav: "more", footer: "product" },
@@ -26,8 +26,8 @@ export const ROUTES = {
   terms: { path: "/terms", title: "Terms", description: "Terms of use.", phase: 5, footer: "company" },
   status: { path: "/status", title: "Status", description: "Indexer and RPC health.", phase: 5, footer: "company" },
   token: { path: "/token/[address]", title: "Token Report", description: "Risk report for a token.", phase: 2, live: true },
-  creator: { path: "/creator/[address]", title: "Creator Reputation", description: "Deployment history and funding facts for a creator.", phase: 3 },
-  wallet: { path: "/wallet/[address]", title: "Wallet DNA", description: "Activity timeline, flows, and counterparties.", phase: 3 },
+  creator: { path: "/creator/[address]", title: "Creator Reputation", description: "Deployment history and funding facts for a creator.", phase: 3, live: true },
+  wallet: { path: "/wallet/[address]", title: "Wallet DNA", description: "Activity timeline, flows, and counterparties.", phase: 3, live: true },
 } as const satisfies Record<string, RouteDef>;
 
 export const ROUTE_LIST: RouteDef[] = Object.values(ROUTES);

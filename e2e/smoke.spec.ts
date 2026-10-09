@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const COMING_SOON = ["/sybil", "/whales", "/momentum", "/alerts", "/doctor", "/ecosystem", "/developers", "/developers/api", "/about", "/privacy", "/terms", "/status"];
+const COMING_SOON = ["/whales", "/momentum", "/alerts", "/doctor", "/ecosystem", "/developers", "/developers/api", "/about", "/privacy", "/terms", "/status"];
 const ADDR = "0x3c1b3e4383f3Fa90b314dD451332c86b1C779725";
 
 test("landing page renders per SRS 6 without fake metrics", async ({ page }) => {
@@ -27,6 +27,24 @@ for (const path of COMING_SOON) {
     await expect(page.getByText(/Coming in phase \d/)).toBeVisible();
   });
 }
+
+test("sybil page explains itself, validates input and never claims identity", async ({ page }) => {
+  await page.goto("/sybil");
+  await expect(page.getByRole("heading", { name: "Sybil analysis" })).toBeVisible();
+  await expect(page.getByText("never say the wallets share an owner", { exact: false })).toBeVisible();
+  await page.goto("/sybil?token=0x123");
+  await expect(page.getByText("Not a valid address")).toBeVisible();
+  await page.goto(`/sybil?token=${"0x" + "1".repeat(40)}`);
+  await expect(page.getByText(/No finished scan for this token|Analysis is unavailable/)).toBeVisible();
+});
+
+test("wallet and creator pages degrade honestly without a database", async ({ page }) => {
+  for (const base of ["/wallet", "/creator"]) {
+    await page.goto(`${base}/${ADDR}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(/Coming in phase/);
+  }
+});
 
 test("scanner shows a helpful error for invalid input", async ({ page }) => {
   await page.goto("/scan");
@@ -74,7 +92,7 @@ test("mobile nav opens", async ({ page }) => {
 
 test("no horizontal overflow on mobile for core pages", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 700 });
-  for (const p of ["/", "/scan", "/methodology", `/token/${ADDR}`]) {
+  for (const p of ["/", "/scan", "/methodology", "/sybil", `/token/${ADDR}`, `/wallet/${ADDR}`, `/creator/${ADDR}`]) {
     await page.goto(p);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, p).toBeLessThanOrEqual(0);

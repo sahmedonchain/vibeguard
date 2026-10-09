@@ -5,10 +5,16 @@ import { rateLimitCounters } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { ApiError } from "./errors";
 
-export type Limit = { name: string; max: number; windowSeconds: number };
+/**
+ * `failClosed`: when the counter store is unavailable, reject the request instead of allowing it.
+ * Set it for anything that creates work or calls upstream providers; leave it off for cheap reads.
+ */
+export type Limit = { name: string; max: number; windowSeconds: number; failClosed?: boolean };
 
 export const LIMITS = {
-  createScan: { name: "create-scan", max: 10, windowSeconds: 60 },
+  createScan: { name: "create-scan", max: 10, windowSeconds: 60, failClosed: true },
+  /** Wallet and creator profiles query the explorer on a cache miss. */
+  analyze: { name: "analyze", max: 20, windowSeconds: 60, failClosed: true },
   read: { name: "read", max: 120, windowSeconds: 60 },
 } as const satisfies Record<string, Limit>;
 
@@ -22,8 +28,9 @@ export type RateLimitState = { limit: number; remaining: number; resetSeconds: n
 
 /**
  * Fixed-window limiter backed by Postgres, so it holds across serverless instances.
- * Throws RATE_LIMITED when exceeded. If the DB is unreachable the request is allowed
- * (fail-open) because blocking all reads on a limiter outage is worse; scans are still bounded by the queue.
+ * Throws RATE_LIMITED when exceeded. If the DB is unreachable, limits marked `failClosed` throw
+ * PROVIDER_UNAVAILABLE (scan creation, explorer-backed analysis); the others fail open, because
+ * blocking every cheap read during a limiter outage is worse than letting them through.
  */
 export async function enforceRateLimit(db: Db, key: string, limit: Limit, now = Date.now()): Promise<RateLimitState> {
   const windowMs = limit.windowSeconds * 1000;
@@ -41,6 +48,7 @@ export async function enforceRateLimit(db: Db, key: string, limit: Limit, now = 
     if (Math.random() < 0.01) await db.delete(rateLimitCounters).where(sql`${rateLimitCounters.windowStart} < now() - interval '1 hour'`).catch(() => undefined);
   } catch (err) {
     console.error("rate limiter unavailable", err instanceof Error ? err.message : err);
+    if (limit.failClosed) throw new ApiError("PROVIDER_UNAVAILABLE", "The service cannot verify request limits right now. Try again shortly.", { retryAfterSeconds: 10 });
     return { limit: limit.max, remaining: limit.max, resetSeconds };
   }
   const state = { limit: limit.max, remaining: Math.max(0, limit.max - count), resetSeconds };

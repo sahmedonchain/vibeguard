@@ -31,6 +31,14 @@ All observations below were made on 2026-10-09/10 against the public RPC and may
 - Historical state (`eth_getCode`/`eth_call` at old blocks) works on the public RPC, including a binary search for the first block with code. The creation block is taken from the explorer's creation tx and confirmed with the RPC receipt.
 - Node connecting to the Postgres host (Neon) from a dual-stack machine needs `net.setDefaultAutoSelectFamilyAttemptTimeout(3000)`; the 250 ms default fails with ETIMEDOUT/ENETUNREACH.
 
+## Explorer address endpoints used in phase 3 (observed 2026-10-10)
+
+- `GET /api/v2/addresses/{a}/transactions?sort=block_number&order=asc|desc[&filter=to|from]` returns 50 items per page and `next_page_params`, which are passed back as query parameters. `created_contract` is set only for direct CREATE transactions.
+- Launchpad launches do **not** appear as `created_contract`. The creation transaction's detail (`GET /api/v2/transactions/{hash}`) lists `token_transfers` including a `token_minting` transfer from the zero address with `token.type` (`ERC-20`, `ERC-721`, …). VibeGuard attributes a token to a sender only through an ERC-20 mint in a transaction the sender sent through a known creation path (target + selector).
+- `GET /api/v2/addresses/{a}/counters` can lag: `transactions_count` was `0` for an address that listed 40 transactions (and `40` minutes later). Counts are reconciled against the listed transactions.
+- `GET /api/v2/addresses/{a}/token-transfers?type=ERC-20` lists token transfers touching the address, paged the same way.
+- No documented rate limit; calls are bounded (concurrency 4–5, time budget per scan).
+
 ## Token population (observed)
 
 Blockscout `/api/v2/tokens?type=ERC-20&q=vibe` lists many launchpad tokens. A survey of 25 of them (analysis block 131.77M) found every one to be a plain ERC-20: no `owner()`, no proxy, no mint/pause/blacklist/fee selectors, all unverified source. Creation transactions come from user EOAs through launchpad contracts (`0x40f1…`, `0xe794…`, `0x2784…`), so the *creation tx sender* is the user and the *immediate creator* (explorer `creator_address_hash`) is a contract. VibeGuard reports both and does not equate either with a person.

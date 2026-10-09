@@ -1,3 +1,5 @@
+import type { CreatorAnalysis } from "@/lib/analysis/creator";
+import type { SybilAnalysis } from "@/lib/analysis/sybil";
 import type { ContractAnalysis } from "@/lib/contracts/analyze";
 import type { HolderAnalysis } from "@/lib/indexing/holders";
 
@@ -30,6 +32,10 @@ export type RuleContext = {
   contract: ContractAnalysis | null;
   /** Null unless the transfer index covered the full history up to analysisBlock. */
   holders: HolderAnalysis | null;
+  /** Creator history; null when it was not attempted. `explorerAvailable` is false when the explorer failed. */
+  creator: CreatorAnalysis | null;
+  /** Coordination analysis of the largest wallet holders; null unless holders were computed. */
+  sybil: SybilAnalysis | null;
   /** Result of reconciling indexed balances against on-chain reads; null if not performed. */
   reconciliation: { supplyMatches: boolean; indexedSupply: string; onChainSupply: string; checked: number; mismatches: { address: string; indexed: string; onChain: string }[] } | null;
 };

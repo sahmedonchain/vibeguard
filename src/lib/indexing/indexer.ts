@@ -168,13 +168,13 @@ export async function* loadTransfers(db: Db, chainId: number, token: string, toB
   let lastId = 0;
   for (;;) {
     const rows = await db
-      .select({ id: tokenTransfers.id, from: tokenTransfers.fromAddress, to: tokenTransfers.toAddress, value: tokenTransfers.value })
+      .select({ id: tokenTransfers.id, blockNumber: tokenTransfers.blockNumber, from: tokenTransfers.fromAddress, to: tokenTransfers.toAddress, value: tokenTransfers.value })
       .from(tokenTransfers)
       .where(and(eq(tokenTransfers.chainId, chainId), eq(tokenTransfers.tokenAddress, token.toLowerCase()), sql`${tokenTransfers.blockNumber} <= ${toBlock}`, gt(tokenTransfers.id, lastId)))
       .orderBy(asc(tokenTransfers.id))
       .limit(pageSize);
     if (!rows.length) return;
     lastId = rows[rows.length - 1].id;
-    yield rows.map((r) => ({ from: r.from, to: r.to, value: BigInt(r.value) }));
+    yield rows.map((r) => ({ blockNumber: r.blockNumber, from: r.from, to: r.to, value: BigInt(r.value) }));
   }
 }

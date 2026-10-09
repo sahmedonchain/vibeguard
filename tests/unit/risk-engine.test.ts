@@ -31,7 +31,7 @@ function holders(over: Partial<HolderAnalysis> = {}): HolderAnalysis {
 }
 const recon = { supplyMatches: true, indexedSupply: "10000", onChainSupply: "10000", checked: 5, mismatches: [] };
 function ctx(over: Partial<RuleContext> = {}): RuleContext {
-  return { token: { address: addr("a"), creationBlock: 1, creator: addr("c"), creationTxHash: "0x" + "9".repeat(64) }, analysisBlock: 100, contract: contract(), holders: holders(), reconciliation: recon, ...over };
+  return { token: { address: addr("a"), creationBlock: 1, creator: addr("c"), creationTxHash: "0x" + "9".repeat(64) }, analysisBlock: 100, contract: contract(), holders: holders(), creator: null, sybil: null, reconciliation: recon, ...over };
 }
 const cap = (capability: never, signature: string) => ({ capability, signature, selector: "0x12345678", via: "bytecode_selector" as const, confidence: "medium" as const });
 
@@ -121,12 +121,13 @@ describe("score", () => {
   });
   it("reports coverage separately and marks results provisional", () => {
     const s = computeScore(evaluateRules(ctx()));
-    // creator, liquidity, suspicious have no rules: max coverage = 0.30 + 0.20 + 0.05
+    // creator and suspicious rules cannot run without creator/sybil data and liquidity has no rules: 0.30 + 0.20 + 0.05
     expect(s.coverage).toBe(0.55);
     expect(s.provisional).toBe(true);
     const unavailable = s.categories.filter((c) => c.score === null).map((c) => c.category).sort();
     expect(unavailable).toEqual(["creator", "liquidity", "suspicious"]);
-    expect(s.categories.find((c) => c.category === "creator")!.unavailableReason).toBeTruthy();
+    expect(s.categories.find((c) => c.category === "liquidity")!.unavailableReason).toBeTruthy();
+    expect(s.categories.find((c) => c.category === "creator")!.unknown).toEqual(["VG-CRT-001", "VG-CRT-002", "VG-CRT-003"]);
   });
   it("missing data lowers coverage and never lowers risk", () => {
     const full = computeScore(evaluateRules(ctx({ contract: contract({ owner: { state: "active", address: addr("e"), isContract: false }, capabilities: [cap("mint" as never, "mint(address,uint256)")] }) })));

@@ -32,6 +32,9 @@ export type ScanReport = {
   score: { overall: number | null; level: string; coverage: number; provisional: boolean; criticalOverride: boolean; categories: (CategoryScore & { label: string })[] } | null;
   findings: ReportFinding[];
   holders: ScanContext["holders"];
+  holderHistory: ScanContext["holderHistory"];
+  creator: ScanContext["creator"];
+  sybil: ScanContext["sybil"];
   indexing: ScanContext["indexing"];
   error: { code: string; message: string } | null;
 };
@@ -117,6 +120,9 @@ async function assemble(db: Db, cfg: ChainConfig, scan: typeof scans.$inferSelec
         })),
     })),
     holders: ctx?.holders ?? null,
+    holderHistory: ctx?.holderHistory ?? null,
+    creator: ctx?.creator ?? null,
+    sybil: ctx?.sybil ?? null,
     indexing: ctx?.indexing ?? null,
     error: scan.errorCode ? { code: scan.errorCode, message: scan.errorMessage ?? "" } : null,
   };

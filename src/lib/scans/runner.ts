@@ -3,10 +3,16 @@ import type { PublicClient } from "viem";
 import type { Db } from "@/db/client";
 import { contractPermissions, contracts, evidenceRecords, riskFindings, riskScores, scans, tokens } from "@/db/schema";
 import type { ChainConfig } from "@/lib/chain/config";
+import { analyzeCreator, creatorSellDown, emptyCreatorAnalysis, type CreatorAnalysis } from "@/lib/analysis/creator";
+import { creationPatterns } from "@/lib/analysis/creator-profile";
+import { runSybilAnalysis } from "@/lib/analysis/sybil-run";
+import type { SybilAnalysis } from "@/lib/analysis/sybil";
+import { isContractAt, isErc20Like } from "@/lib/contracts/is-contract";
 import { analyzeContract, type ContractAnalysis } from "@/lib/contracts/analyze";
 import { type AppEnv } from "@/lib/env";
 import { findCreation } from "@/lib/indexing/creation";
-import { analyzeHolders, type HolderAnalysis } from "@/lib/indexing/holders";
+import { computeHolderHistory, type HolderHistory } from "@/lib/indexing/holder-history";
+import { analyzeHolders, BURN_ADDRESSES, type HolderAnalysis } from "@/lib/indexing/holders";
 import { indexTokenTransfers, loadTransfers, type IndexResult } from "@/lib/indexing/indexer";
 import { computeBalances } from "@/lib/indexing/transfers";
 import { errorMessage, isTransientError, withRetry } from "@/lib/retry";
@@ -21,6 +27,9 @@ export type ScanContext = {
   token: { address: string; name: string | null; symbol: string | null; decimals: number | null; totalSupply: string | null; creationBlock: number | null; creationTxHash: string | null; creator: string | null; immediateCreator: string | null; creationSource: string | null };
   contract: ContractAnalysis | null;
   holders: HolderAnalysis | null;
+  holderHistory: HolderHistory | null;
+  creator: CreatorAnalysis | null;
+  sybil: SybilAnalysis | null;
   indexing: Pick<IndexResult, "complete" | "stoppedReason" | "lastIndexedBlock" | "inserted" | "skippedLogs" | "rewoundTo"> & { error?: string } | null;
   reconciliation: RuleContext["reconciliation"];
 };
@@ -81,34 +90,47 @@ async function executeScan(db: Db, client: Client, cfg: ChainConfig, env: AppEnv
 
   // Token metadata and creation
   const [tokenRow] = await db.select().from(tokens).where(sql`${tokens.chainId} = ${cfg.chainId} and ${tokens.address} = ${address.toLowerCase()}`);
-  let creation = tokenRow?.creationBlock != null ? { block: tokenRow.creationBlock, txHash: tokenRow.creationTxHash, txSender: tokenRow.creatorAddress, immediateCreator: null as string | null, source: tokenRow.creationSource } : null;
+  type Creation = { block: number; txHash: string | null; txSender: string | null; txTo: string | null; selector: string | null; immediateCreator: string | null; source: string | null };
+  let creation: Creation | null =
+    tokenRow?.creationBlock != null
+      ? { block: tokenRow.creationBlock, txHash: tokenRow.creationTxHash, txSender: tokenRow.creatorAddress, txTo: tokenRow.creationTo, selector: tokenRow.creationSelector, immediateCreator: null, source: tokenRow.creationSource }
+      : null;
   if (!creation) {
     const found = await findCreation(client, cfg.explorerUrl, address, analysisBlock);
-    if (found) creation = { block: found.block, txHash: found.txHash, txSender: found.txSender, immediateCreator: found.immediateCreator, source: found.source };
+    if (found) creation = { block: found.block, txHash: found.txHash, txSender: found.txSender, txTo: found.txTo, selector: found.selector, immediateCreator: found.immediateCreator, source: found.source };
+  } else if (creation.txHash && !creation.selector) {
+    // Rows written before the creation path was recorded: read it from the creation transaction.
+    const tx = await withRetry(() => client.getTransaction({ hash: creation!.txHash as `0x${string}` })).catch(() => null);
+    if (tx) creation = { ...creation, txTo: tx.to?.toLowerCase() ?? null, selector: tx.input.length >= 10 ? tx.input.slice(0, 10).toLowerCase() : null };
   }
   const supply = contract.erc20.totalSupply;
   await db
     .update(tokens)
-    .set({ name: contract.erc20.name, symbol: contract.erc20.symbol, decimals: contract.erc20.decimals, totalSupply: supply, creationBlock: creation?.block ?? null, creationTxHash: creation?.txHash ?? null, creatorAddress: creation?.txSender ?? null, creationSource: creation?.source ?? null, updatedAt: sql`now()` })
+    .set({ name: contract.erc20.name, symbol: contract.erc20.symbol, decimals: contract.erc20.decimals, totalSupply: supply, creationBlock: creation?.block ?? null, creationTxHash: creation?.txHash ?? null, creatorAddress: creation?.txSender ?? null, creationSource: creation?.source ?? null, creationTo: creation?.txTo ?? null, creationSelector: creation?.selector ?? null, updatedAt: sql`now()` })
     .where(sql`${tokens.chainId} = ${cfg.chainId} and ${tokens.address} = ${address.toLowerCase()}`);
+
+  // Creator history (explorer) runs while transfers are indexed.
+  const creatorPromise = analyzeCreatorSafely(db, client, cfg, address.toLowerCase(), creation, Date.now() + env.ANALYSIS_BUDGET_MS);
 
   // Transfer index and holders
   const startBlock = creation?.block ?? env.INDEXER_START_BLOCK ?? null;
   const indexing = await indexTokenTransfers(db, client, { chainId: cfg.chainId, tokenAddress: address, startBlock, toBlock: analysisBlock, maxRange: cfg.getLogsAddressMaxBlockRange, budgetMs: env.INDEXER_SCAN_BUDGET_MS });
+  let creator = await creatorPromise;
   let holders: HolderAnalysis | null = null;
+  let holderHistory: HolderHistory | null = null;
+  let sybil: SybilAnalysis | null = null;
   let reconciliation: RuleContext["reconciliation"] = null;
   if (indexing.complete && supply != null) {
-    const all: { from: string; to: string; value: bigint }[] = [];
+    const all: { blockNumber: number; from: string; to: string; value: bigint }[] = [];
     for await (const page of loadTransfers(db, cfg.chainId, address, analysisBlock)) all.push(...page);
     const state = computeBalances(all);
     const onChainSupply = BigInt(supply);
     const indexedSupply = state.minted - state.burnedToZero;
-    const isContract = async (a: string) => {
-      const code = await withRetry(() => client.getCode({ address: a as `0x${string}`, blockNumber: BigInt(analysisBlock) }));
-      // EIP-7702 delegated accounts (0xef0100 + address) are externally owned, not contracts.
-      return Boolean(code && code !== "0x" && !(code.length === 48 && code.toLowerCase().startsWith("0xef0100")));
-    };
-    holders = await analyzeHolders({ balances: state.balances, totalSupply: onChainSupply, indexedSupply, creator: creation?.txSender ?? null, isContract });
+    const isContract = (a: string) => isContractAt(client, a, analysisBlock);
+    const knownContracts: Record<string, string> = { [address.toLowerCase()]: "This token's contract" };
+    if (creation?.txTo) knownContracts[creation.txTo] = "Contract the creation transaction called";
+    if (creation?.immediateCreator) knownContracts[creation.immediateCreator] = "Contract that deployed this token";
+    holders = await analyzeHolders({ balances: state.balances, totalSupply: onChainSupply, indexedSupply, creator: creation?.txSender ?? null, isContract, knownContracts });
 
     const mismatches: { address: string; indexed: string; onChain: string }[] = [];
     const top = holders.topHolders.slice(0, 20);
@@ -124,6 +146,17 @@ async function executeScan(db: Db, client: Client, cfg: ChainConfig, env: AppEnv
       }
     }
     reconciliation = { supplyMatches: indexedSupply === onChainSupply && state.negativeBalanceEvents === 0, indexedSupply: indexedSupply.toString(), onChainSupply: onChainSupply.toString(), checked, mismatches };
+
+    // Creator position, concentration over time, and coordination among the largest wallets.
+    if (creation?.txSender) creator = { ...creator, sellDown: creatorSellDown(all, creation.txSender, onChainSupply) };
+    const excluded = new Set(holders.topHolders.filter((h) => h.class === "contract" || h.class === "burn").map((h) => h.address));
+    for (const b of BURN_ADDRESSES) excluded.add(b);
+    holderHistory = await withTimes(client, computeHolderHistory(all, { endBlock: analysisBlock, totalSupply: onChainSupply, excluded, tracked: holders.topHolders.slice(0, 20).map((h) => h.address) }));
+    const candidates = holders.topHolders.filter((h) => h.class === "eoa" || h.class === "creator").map((h) => ({ address: h.address, balanceBps: h.bps }));
+    sybil = await runSybilAnalysis(db, client, { chainId: cfg.chainId, explorerUrl: cfg.explorerUrl, token: address.toLowerCase(), analysisBlock, candidates, ignoredSinks: [...BURN_ADDRESSES, address.toLowerCase()], deadline: Date.now() + env.ANALYSIS_BUDGET_MS }).catch((err) => {
+      console.error(`[scan ${scanId}] sybil analysis failed:`, errorMessage(err));
+      return null;
+    });
   }
 
   // Risk evaluation
@@ -132,6 +165,8 @@ async function executeScan(db: Db, client: Client, cfg: ChainConfig, env: AppEnv
     analysisBlock,
     contract,
     holders,
+    creator,
+    sybil,
     reconciliation,
   };
   const evaluated = evaluateRules(ruleCtx);
@@ -142,6 +177,9 @@ async function executeScan(db: Db, client: Client, cfg: ChainConfig, env: AppEnv
     token: { address: address.toLowerCase(), name: contract.erc20.name, symbol: contract.erc20.symbol, decimals: contract.erc20.decimals, totalSupply: supply, creationBlock: creation?.block ?? null, creationTxHash: creation?.txHash ?? null, creator: creation?.txSender ?? null, immediateCreator: creation?.immediateCreator ?? null, creationSource: creation?.source ?? null },
     contract,
     holders,
+    holderHistory,
+    creator,
+    sybil,
     indexing: { complete: indexing.complete, stoppedReason: indexing.stoppedReason, lastIndexedBlock: indexing.lastIndexedBlock, inserted: indexing.inserted, skippedLogs: indexing.skippedLogs, rewoundTo: indexing.rewoundTo, ...(indexing.error ? { error: "Indexing stopped early" } : {}) },
     reconciliation,
   };
@@ -165,4 +203,40 @@ async function executeScan(db: Db, client: Client, cfg: ChainConfig, env: AppEnv
       .set({ status: anyUnknown || !indexing.complete ? "partial" : "completed", finishedAt: sql`now()`, latestIndexedBlock: indexing.lastIndexedBlock, context, errorCode: null, errorMessage: null })
       .where(eq(scans.id, scanId));
   });
+}
+
+/** Creator history for the subject token's creation sender. Never throws: failure leaves the explorer-derived fields unavailable. */
+async function analyzeCreatorSafely(
+  db: Db,
+  client: Client,
+  cfg: ChainConfig,
+  token: string,
+  creation: { txHash: string | null; txSender: string | null; txTo: string | null; selector: string | null; block: number } | null,
+  deadline: number,
+): Promise<CreatorAnalysis> {
+  const sender = creation?.txSender ?? null;
+  if (!sender) return emptyCreatorAnalysis("0x" + "0".repeat(40));
+  const patterns = await creationPatterns(db, cfg.chainId, sender, creation);
+  try {
+    const block = await withRetry(() => client.getBlock({ blockNumber: BigInt(creation!.block) })).catch(() => null);
+    return await analyzeCreator(cfg.explorerUrl, { address: sender, subject: { token, txHash: creation!.txHash, time: block ? new Date(Number(block.timestamp) * 1000) : null }, patterns }, { deadline, isToken: (t) => isErc20Like(client, t) });
+  } catch (err) {
+    console.error("creator analysis failed:", errorMessage(err));
+    return emptyCreatorAnalysis(sender, patterns);
+  }
+}
+
+/** Adds block timestamps to history points; a failed lookup leaves the time null. */
+async function withTimes(client: Client, h: HolderHistory | null): Promise<HolderHistory | null> {
+  if (!h) return h;
+  const time = async (n: number) => {
+    try {
+      return new Date(Number((await withRetry(() => client.getBlock({ blockNumber: BigInt(n) }))).timestamp) * 1000).toISOString();
+    } catch {
+      return null;
+    }
+  };
+  const points = await Promise.all(h.points.map(async (p) => ({ ...p, time: await time(p.block) })));
+  const window = h.window ? { ...h.window, fromTime: points.find((p) => p.block === h.window!.fromBlock)?.time ?? null, toTime: points[points.length - 1]?.time ?? null } : null;
+  return { ...h, points, window };
 }

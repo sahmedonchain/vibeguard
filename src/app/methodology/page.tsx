@@ -4,12 +4,14 @@ import {
   CATEGORY_LABELS,
   CATEGORY_WEIGHTS,
   CONFIDENCE_MULTIPLIER,
+  CREATOR_THRESHOLDS,
   HOLDER_THRESHOLDS,
   INSUFFICIENT_BELOW_COVERAGE,
   METHODOLOGY_VERSION,
   PROVISIONAL_BELOW_COVERAGE,
   RISK_LEVELS,
   SEVERITY_POINTS,
+  SYBIL_THRESHOLDS,
 } from "@/lib/risk-engine/methodology";
 import { RULES } from "@/lib/risk-engine/registry";
 
@@ -52,7 +54,7 @@ export default function MethodologyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Categories and weights</h2>
         <Table caption="Category weights" head={["Category", "Weight", "Rules in this version"]} rows={CATEGORIES.map((c) => [CATEGORY_LABELS[c], `${CATEGORY_WEIGHTS[c] * 100}%`, RULES.filter((r) => r.category === c).length || "None yet (reported as not assessed)"])} />
-        <p className="text-sm text-muted-foreground">Creator history, liquidity and suspicious-activity categories have no rules in this version, so they are reported as not assessed and reduce coverage. The maximum possible coverage today is {Math.round(CATEGORIES.reduce((a, c) => a + (RULES.some((r) => r.category === c) ? CATEGORY_WEIGHTS[c] : 0), 0) * 100)}%.</p>
+        <p className="text-sm text-muted-foreground">Liquidity has no rules in this version (no verified market data source exists on this network), so it is reported as not assessed and reduces coverage. Suspicious-activity currently contains only the coordination rules; the rest of that category arrives in a later phase. The maximum possible coverage today is {Math.round(CATEGORIES.reduce((a, c) => a + (RULES.some((r) => r.category === c) ? CATEGORY_WEIGHTS[c] : 0), 0) * 100)}%.</p>
       </section>
 
       <section className="space-y-3">
@@ -82,6 +84,20 @@ export default function MethodologyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Creator and coordination thresholds</h2>
+        <p className="text-sm text-muted-foreground">Creator checks read the creator&apos;s public history from the block explorer, a bounded window (latest 100 and earliest 50 transactions), so counts are lower bounds. Coordination checks look at the {SYBIL_THRESHOLDS.candidateLimit} largest non-contract holders. Coordination findings describe similar behavior and never say wallets share an owner; severity is capped at high.</p>
+        <Table caption="Creator and coordination thresholds" head={["Setting", "Value"]} rows={[
+          ["New creator wallet (VG-CRT-001)", `first transaction less than ${CREATOR_THRESHOLDS.freshWalletSeconds / 3600} hours before creation`],
+          ["Repeated token creation (VG-CRT-002)", `at least ${CREATOR_THRESHOLDS.repeatCreations.low} other confirmed tokens (low), ${CREATOR_THRESHOLDS.repeatCreations.medium} (medium)`],
+          ["Creator sold down (VG-CRT-003)", `peak at least ${pctBps(CREATOR_THRESHOLDS.sellDown.minPeakBps)} of supply and now at most ${pctBps(CREATOR_THRESHOLDS.sellDown.remainingRatioBps)} of that peak`],
+          ["Funding correlation", `same non-hub funder; funded within ${SYBIL_THRESHOLDS.fundingWindowSeconds / 60} minutes; amounts within ${Math.round((1 - SYBIL_THRESHOLDS.amountSimilarityMinRatio) * 100)}%`],
+          ["Hub funder (ignored as evidence)", `a contract, or ${SYBIL_THRESHOLDS.hubFunderTxCount}+ transactions`],
+          ["Synchronized acquisition", `${SYBIL_THRESHOLDS.acquisitionMinGroup} to ${SYBIL_THRESHOLDS.acquisitionMaxGroup} wallets first receiving the token within ${SYBIL_THRESHOLDS.acquisitionWindowSeconds}s`],
+          ["Cluster is scored", `combined share of at least ${pctBps(SYBIL_THRESHOLDS.minClusterShareBps)} of supply; high severity from ${pctBps(SYBIL_THRESHOLDS.highClusterShareBps)}`],
+        ]} />
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold">Rules</h2>
         <Table caption="Rule registry" head={["ID", "Rule", "Category", "Max severity", "Needs", "False-positive notes"]} rows={RULES.map((r) => [r.id, `${r.name}: ${r.description}`, CATEGORY_LABELS[r.category], r.maxSeverity, r.requires.join("; "), r.falsePositives])} />
       </section>
@@ -93,7 +109,10 @@ export default function MethodologyPage() {
           <li>Proxy detection covers EIP-1167 clones and EIP-1967 proxies. Other patterns are not detected.</li>
           <li>Holder figures come from indexed Transfer events and are reconciled against totalSupply() and balanceOf(). Rebasing or fee-adjusting tokens will fail reconciliation and are flagged.</li>
           <li>Only the 50 largest holders are classified. If fewer than 20 non-excluded holders are found among them, shares are marked as lower bounds.</li>
-          <li>Liquidity, market, creator-history and suspicious-activity analysis are not available yet.</li>
+          <li>Liquidity and market analysis are not available. Contracts holding supply are labelled only when they are this token or the contract that created it; pools, curves and vaults are not identified.</li>
+          <li>Creator and funding facts come from the block explorer, which is not part of the chain. If it is unavailable those checks are reported as could not be checked, never as clear. Explorer counters can lag.</li>
+          <li>Coordination heuristics cannot see wallets funded through exchanges or bridges, and can flag unrelated wallets that acted at the same time. Every signal lists an innocent explanation.</li>
+          <li>Suspicious-activity rules other than coordination (for example wash trading) are not available yet.</li>
           <li>Testnet results do not establish mainnet security.</li>
         </ul>
       </section>

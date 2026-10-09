@@ -59,9 +59,7 @@ export type ScoreResult = {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const UNAVAILABLE: Partial<Record<Category, string>> = {
-  creator: "Creator history analysis is not implemented in methodology 1.0.0.",
   liquidity: "No verified liquidity pool or market data source exists for this network.",
-  suspicious: "Suspicious-activity rules are not implemented in methodology 1.0.0.",
 };
 
 /**

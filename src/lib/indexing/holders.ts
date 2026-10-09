@@ -10,6 +10,8 @@ export type ClassifiedHolder = {
   /** Share of on-chain total supply in basis points (1 bp = 0.01%). */
   bps: number;
   class: HolderClass;
+  /** Set only when the address is a contract the scan can name from facts (this token, the contract that created it). */
+  label?: string;
 };
 
 export type HolderAnalysis = {
@@ -40,6 +42,8 @@ export type HolderInput = {
   totalSupply: bigint;
   indexedSupply: bigint;
   creator: string | null;
+  /** Contracts identified from facts (address equality), keyed by lowercase address. Not guesses about pools or vaults. */
+  knownContracts?: Record<string, string>;
   /** Looks up whether an address has code. Called only for top holders. */
   isContract: (address: string) => Promise<boolean>;
   classifyLimit?: number;
@@ -57,7 +61,8 @@ export async function analyzeHolders(input: HolderInput): Promise<HolderAnalysis
   const top = sorted.slice(0, limit);
 
   const classes = new Map<string, HolderClass>();
-  const queue = top.filter(([a]) => !BURN_ADDRESSES.has(a) && a !== creator).map(([a]) => a);
+  const known = input.knownContracts ?? {};
+  const queue = top.filter(([a]) => !BURN_ADDRESSES.has(a) && a !== creator && !known[a]).map(([a]) => a);
   const workers = Array.from({ length: Math.min(5, queue.length) }, async () => {
     for (let a = queue.shift(); a !== undefined; a = queue.shift()) classes.set(a, (await input.isContract(a)) ? "contract" : "eoa");
   });
@@ -67,14 +72,15 @@ export async function analyzeHolders(input: HolderInput): Promise<HolderAnalysis
     address,
     balance: balance.toString(),
     bps: bps(balance, totalSupply),
-    class: BURN_ADDRESSES.has(address) ? "burn" : address === creator ? "creator" : (classes.get(address) ?? "eoa"),
+    class: BURN_ADDRESSES.has(address) ? "burn" : address === creator ? "creator" : known[address] ? "contract" : (classes.get(address) ?? "eoa"),
+    ...(known[address] && !BURN_ADDRESSES.has(address) && address !== creator ? { label: known[address] } : {}),
   }));
 
   let burn = balances.get("0x000000000000000000000000000000000000dead") ?? 0n;
   let contract = 0n;
   for (const [a, b] of sorted) {
     if (BURN_ADDRESSES.has(a)) continue;
-    if (classes.get(a) === "contract") contract += b;
+    if (classes.get(a) === "contract" || (known[a] && a !== creator)) contract += b;
   }
   // Burned to the zero address is not a balance entry; it is reflected in supply, not holders.
   const counted = topHolders.filter((h) => h.class === "eoa" || h.class === "creator");

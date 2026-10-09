@@ -7,6 +7,7 @@ const schema = z.object({
   APP_ENV: z.enum(["development", "test", "production"]).default("development"),
   INDEXER_CONFIRMATIONS: z.coerce.number().int().min(0).max(1000).default(2),
   INDEXER_SCAN_BUDGET_MS: z.coerce.number().int().min(1000).default(90_000),
+  ANALYSIS_BUDGET_MS: z.coerce.number().int().min(1000).default(45_000),
   INDEXER_POLL_INTERVAL_MS: z.coerce.number().int().min(500).default(3000),
   INDEXER_START_BLOCK: z.preprocess(emptyToUndefined, z.coerce.number().int().nonnegative().optional()),
   RATE_LIMIT_SECRET: z.string().min(1).default("dev-only-insecure-secret"),

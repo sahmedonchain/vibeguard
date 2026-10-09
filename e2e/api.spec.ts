@@ -67,3 +67,49 @@ test("rate limiting is enforced on scan creation", async ({ request }) => {
   expect(statuses).toContain(429);
   expect(Number(retryAfter)).toBeGreaterThan(0);
 });
+
+const OTHER = "0x" + "2".repeat(40);
+
+test("token slice endpoints validate input and report missing scans", async ({ request }) => {
+  for (const slice of ["holders", "creator", "relationships"]) {
+    expect((await request.get(`/api/v1/tokens/0xnope/${slice}`)).status(), slice).toBe(400);
+    const none = await request.get(`/api/v1/tokens/${OTHER}/${slice}`);
+    expect(none.status(), slice).toBe(404);
+    expect(((await none.json()) as Err).error.code).toBe("DATA_UNAVAILABLE");
+  }
+});
+
+test("wallet and creator endpoints validate addresses", async ({ request }) => {
+  for (const path of ["/api/v1/wallets/0xnope", "/api/v1/wallets/0xnope/relationships", "/api/v1/creators/0xnope"]) {
+    const res = await request.get(path);
+    expect(res.status(), path).toBe(400);
+    expect(((await res.json()) as Err).error.code).toBe("INVALID_ADDRESS");
+  }
+});
+
+test("wallet endpoint returns a profile with explicit sample limits and a graph", async ({ request }) => {
+  const res = await request.get("/api/v1/wallets/0xab70588b24203e245bcee352d050975931b16e20");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["cache-control"]).toBe("no-store");
+  const body = (await res.json()) as { data: { address: string; explorerAvailable: boolean; sample: { transactions: number; complete: boolean } }; meta: { requestId: string } };
+  expect(body.data.address).toBe("0xab70588b24203e245bcee352d050975931b16e20");
+  expect(typeof body.data.explorerAvailable).toBe("boolean");
+  if (body.data.explorerAvailable) expect(body.data.sample.transactions).toBeGreaterThan(0);
+  const rel = await request.get("/api/v1/wallets/0xab70588b24203e245bcee352d050975931b16e20/relationships");
+  expect(rel.status()).toBe(200);
+  expect(((await rel.json()) as { data: { graph: { nodes: unknown[] } } }).data.graph.nodes.length).toBeGreaterThan(0);
+});
+
+test("scanned token slices carry freshness and never identity claims (when VIBE COOK was scanned)", async ({ request }) => {
+  const token = "0xb2b489a0bb87bc2e8a1c11913c66ac0ac040e344";
+  const holders = await request.get(`/api/v1/tokens/${token}/holders`);
+  test.skip(holders.status() !== 200, "VIBE COOK has not been scanned in this database");
+  const h = (await holders.json()) as { data: { scanId: string; analysis: { block: number }; holders: { holderCount: number } }; meta: { stale: boolean } };
+  expect(h.data.analysis.block).toBeGreaterThan(0);
+  expect(h.data.holders.holderCount).toBeGreaterThan(1000);
+  const rel = await request.get(`/api/v1/tokens/${token}/relationships`);
+  const r = (await rel.json()) as { data: { sybil: { clusters: { label: string }[] } | null } };
+  for (const c of r.data.sybil?.clusters ?? []) expect(["Possible Coordination", "High Behavioral Similarity"]).toContain(c.label);
+  const cr = await request.get(`/api/v1/tokens/${token}/creator`);
+  expect(((await cr.json()) as { data: { creator: string } }).data.creator).toBe("0xab70588b24203e245bcee352d050975931b16e20");
+});
