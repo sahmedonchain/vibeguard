@@ -1,4 +1,4 @@
-import { RISK_LEVELS, type RiskLevel } from "@/lib/risk-engine/methodology";
+import { RISK_LEVELS, isProvisional, type RiskLevel } from "@/lib/risk-engine/methodology";
 import { cn } from "@/lib/utils";
 
 export function riskBand(score: number): Exclude<RiskLevel, "insufficient"> {
@@ -15,12 +15,16 @@ const BAND_CLS = {
   critical: "text-sev-critical border-sev-critical/60",
 } as const;
 
+const PROVISIONAL_CLS = "text-muted-foreground border-border";
+
 /**
  * Risk score 0 (least observed risk) to 100 (SRS 8.2). Coverage is shown separately:
- * a low score with low coverage is NOT safe, and a provisional score says so.
+ * a low score with low coverage is NOT safe, so any coverage below 100% renders the band as
+ * "<Band> · provisional" in a neutral colour instead of the severity colour. Critical never goes
+ * neutral: it keeps the critical colour and still appends "· provisional".
  * `level` overrides the band (a critical finding forces "critical" regardless of the aggregate).
  */
-export function RiskScore({ score, coverage, provisional, level, className }: { score: number | null; coverage?: number; provisional?: boolean; level?: RiskLevel; className?: string }) {
+export function RiskScore({ score, coverage, level, className }: { score: number | null; coverage?: number; level?: RiskLevel; className?: string }) {
   if (score === null && level !== "critical") {
     return (
       <div className={cn("inline-flex flex-col items-center rounded-lg border border-dashed border-border px-5 py-3", className)}>
@@ -31,11 +35,11 @@ export function RiskScore({ score, coverage, provisional, level, className }: { 
     );
   }
   const band = level && level !== "insufficient" ? level : riskBand(score ?? 0);
+  const provisional = isProvisional(coverage);
   return (
-    <div className={cn("inline-flex flex-col items-center rounded-lg border-2 px-5 py-3", BAND_CLS[band], className)}>
+    <div className={cn("inline-flex flex-col items-center rounded-lg border-2 px-5 py-3", provisional && band !== "critical" ? PROVISIONAL_CLS : BAND_CLS[band], className)}>
       <span className="text-3xl font-bold tabular-nums">{score === null ? "—" : Math.round(score)}</span>
-      <span className="text-xs font-medium uppercase tracking-wide">{LEVEL_LABEL[band]}</span>
-      {provisional && <span className="mt-1 rounded bg-muted px-1.5 text-[10px] font-semibold uppercase text-foreground">Provisional</span>}
+      <span className="text-xs font-medium uppercase tracking-wide">{provisional ? `${LEVEL_LABEL[band]} · provisional` : LEVEL_LABEL[band]}</span>
       {coverage !== undefined && <span className="mt-1 text-xs text-muted-foreground">Coverage {Math.round(coverage * 100)}%</span>}
     </div>
   );

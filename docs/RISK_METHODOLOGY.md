@@ -1,6 +1,6 @@
 # Risk Methodology
 
-Version **1.1.0** (adds creator and coordination rules; weights and existing rule thresholds unchanged from 1.0.0). Source of truth: `src/lib/risk-engine/methodology.ts` and `src/lib/risk-engine/rules/*`. The public page `/methodology` is generated from the same constants. All values are initial product defaults (SRS 8), not externally validated.
+Version **1.1.1** (1.1.0 added creator and coordination rules; 1.1.1 marks any coverage below 100% as provisional; weights and rule thresholds unchanged from 1.0.0). Source of truth: `src/lib/risk-engine/methodology.ts` and `src/lib/risk-engine/rules/*`. The public page `/methodology` is generated from the same constants. All values are initial product defaults (SRS 8), not externally validated.
 
 ## Principles
 
@@ -24,7 +24,7 @@ Version **1.1.0** (adds creator and coordination rules; weights and existing rul
 | Suspicious transaction behavior | 15% | VG-SUS-001…002 (coordination only; the rest arrives in phase 4) |
 | Data integrity and provenance | 5% | VG-INT-001…003 |
 
-Maximum possible coverage in 1.1.0 is 85% (liquidity is the only unassessed category). A result is no longer provisional when every input is available (coverage ≥ 80%). If the block explorer is unreachable the creator and funding rules return `unknown`, coverage drops, and the result is provisional again.
+Maximum possible coverage in 1.1.0 is 85% (liquidity is the only unassessed category). Because the maximum is below 100%, every result is currently provisional. If the block explorer is unreachable the creator and funding rules return `unknown` and coverage drops further.
 
 ## Calculation
 
@@ -35,7 +35,7 @@ Maximum possible coverage in 1.1.0 is 85% (liquidity is the only unassessed cate
 3. Category coverage = rules with a known result ÷ rules registered in the category (0 when none registered).
 4. Overall coverage = Σ weight × category coverage.
 5. Overall risk = Σ(weight × category risk) ÷ Σ(weight) over categories with coverage > 0. Categories without coverage are not treated as zero risk.
-6. Coverage < 80% → provisional. Coverage < 25% → no numeric score (`level: insufficient`).
+6. Coverage < 100% → provisional. Coverage < 25% → no numeric score (`level: insufficient`).
 7. Any detected `critical` finding with medium/high confidence sets the level to `critical` (flag `criticalOverride`) regardless of the aggregate.
 
 ## Rules

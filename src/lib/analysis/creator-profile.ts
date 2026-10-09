@@ -13,7 +13,7 @@ export type KnownToken = {
   creationBlock: number | null;
   creationTxHash: string | null;
   /** Latest finished VibeGuard scan of the token, if any. */
-  scan: { id: string; finishedAt: string | null; level: string; overall: number | null; provisional: boolean } | null;
+  scan: { id: string; finishedAt: string | null; level: string; overall: number | null; coverage: number } | null;
 };
 
 export type Inference = { id: string; statement: string; basis: string[]; alternatives: string[]; confidence: "low" | "medium" };
@@ -45,8 +45,8 @@ export async function creationPatterns(db: Db, chainId: number, sender: string, 
 }
 
 async function knownTokensOf(db: Db, chainId: number, creator: string): Promise<KnownToken[]> {
-  const rows = await db.execute<{ address: string; name: string | null; symbol: string | null; creation_block: number | null; creation_tx_hash: string | null; scan_id: string | null; finished_at: Date | null; level: string | null; overall: string | null; provisional: boolean | null }>(sql`
-    SELECT t.address, t.name, t.symbol, t.creation_block, t.creation_tx_hash, s.id AS scan_id, s.finished_at, r.level, r.overall, r.provisional
+  const rows = await db.execute<{ address: string; name: string | null; symbol: string | null; creation_block: number | null; creation_tx_hash: string | null; scan_id: string | null; finished_at: Date | null; level: string | null; overall: string | null; coverage: string | null }>(sql`
+    SELECT t.address, t.name, t.symbol, t.creation_block, t.creation_tx_hash, s.id AS scan_id, s.finished_at, r.level, r.overall, r.coverage
     FROM tokens t
     LEFT JOIN LATERAL (
       SELECT id, finished_at FROM scans
@@ -62,7 +62,7 @@ async function knownTokensOf(db: Db, chainId: number, creator: string): Promise<
     symbol: r.symbol,
     creationBlock: r.creation_block === null ? null : Number(r.creation_block),
     creationTxHash: r.creation_tx_hash,
-    scan: r.scan_id && r.level ? { id: r.scan_id, finishedAt: r.finished_at ? new Date(r.finished_at).toISOString() : null, level: r.level, overall: r.overall === null ? null : Number(r.overall), provisional: Boolean(r.provisional) } : null,
+    scan: r.scan_id && r.level ? { id: r.scan_id, finishedAt: r.finished_at ? new Date(r.finished_at).toISOString() : null, level: r.level, overall: r.overall === null ? null : Number(r.overall), coverage: Number(r.coverage) } : null,
   }));
 }
 

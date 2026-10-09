@@ -5,7 +5,7 @@ import type { Category, Confidence, Severity } from "./types";
  * the /methodology page and docs/RISK_METHODOLOGY.md are all derived from or checked against them.
  * Every number is an initial product default (SRS 8.2-8.3), not a validated constant.
  */
-export const METHODOLOGY_VERSION = "1.1.0";
+export const METHODOLOGY_VERSION = "1.1.1";
 
 export const CATEGORY_WEIGHTS: Record<Category, number> = {
   contract: 0.3,
@@ -40,10 +40,13 @@ export const RISK_LEVELS = [
 ] as const;
 export type RiskLevel = (typeof RISK_LEVELS)[number]["level"] | "insufficient";
 
-/** Coverage below this: the score is marked provisional. */
-export const PROVISIONAL_BELOW_COVERAGE = 0.8;
+/** Coverage below this: the score is marked provisional (any coverage under 100%). */
+export const PROVISIONAL_BELOW_COVERAGE = 1;
 /** Coverage below this: no numeric score is produced (INSUFFICIENT_DATA). */
 export const INSUFFICIENT_BELOW_COVERAGE = 0.25;
+
+/** The one provisional rule: engine, report banner, band label and creator table all use it. */
+export const isProvisional = (coverage: number | undefined) => coverage !== undefined && coverage < PROVISIONAL_BELOW_COVERAGE;
 
 /** Holder concentration thresholds, in basis points of total supply (EOA/creator holders only). */
 export const HOLDER_THRESHOLDS = {
@@ -92,4 +95,4 @@ export const SYBIL_THRESHOLDS = {
 } as const;
 
 export const METHODOLOGY_DESCRIPTION =
-  "Weighted category model. Unknown data never counts as safe: coverage is reported separately and a score below 80% coverage is provisional.";
+  "Weighted category model. Unknown data never counts as safe: coverage is reported separately and a score below 100% coverage is provisional.";

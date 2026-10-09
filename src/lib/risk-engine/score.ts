@@ -3,7 +3,7 @@ import {
   CONFIDENCE_MULTIPLIER,
   INSUFFICIENT_BELOW_COVERAGE,
   METHODOLOGY_VERSION,
-  PROVISIONAL_BELOW_COVERAGE,
+  isProvisional,
   RISK_LEVELS,
   SEVERITY_POINTS,
   type RiskLevel,
@@ -115,7 +115,7 @@ export function computeScore(evaluated: EvaluatedRule[]): ScoreResult {
     overall,
     level,
     coverage,
-    provisional: coverage < PROVISIONAL_BELOW_COVERAGE,
+    provisional: isProvisional(coverage),
     criticalOverride,
     categories,
   };

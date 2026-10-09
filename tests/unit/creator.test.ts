@@ -131,7 +131,7 @@ describe("direct deployments are classified by an ERC-20 probe", () => {
 describe("interpretCreator", () => {
   const base = { ...emptyCreatorAnalysis(ME), explorerAvailable: true, txCount: 10 };
   const creations = (n: number) => Array.from({ length: n }, (_, i) => ({ token: a(100 + i), txHash: "0x" + i, block: i, time: "2026-09-01T00:00:00.000Z", via: "launchpad" as const, kind: "token" as const }));
-  const known = (level: string): KnownToken => ({ address: a(200), name: "X", symbol: "X", creationBlock: 1, creationTxHash: null, scan: { id: "s", finishedAt: null, level, overall: 70, provisional: false } });
+  const known = (level: string): KnownToken => ({ address: a(200), name: "X", symbol: "X", creationBlock: 1, creationTxHash: null, scan: { id: "s", finishedAt: null, level, overall: 70, coverage: 0.85 } });
 
   it("separates facts from inferences and attaches alternatives to every inference", () => {
     const r = interpretCreator({ ...base, creations: creations(4), funding: { txHash: "0xf", block: 1, time: "2026-09-01T00:00:00.000Z", from: a(9), value: "5" } }, { address: a(9), isContract: false }, []);

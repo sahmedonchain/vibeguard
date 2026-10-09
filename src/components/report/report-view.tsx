@@ -15,7 +15,7 @@ import { CreationsList, CreatorFacts } from "./creator-facts";
 import { FindingCard } from "./finding-card";
 import { HolderHistoryView } from "./holder-extras";
 import { HoldersChart, type ChartHolder } from "./holders-chart";
-import type { RiskLevel } from "@/lib/risk-engine/methodology";
+import { isProvisional, type RiskLevel } from "@/lib/risk-engine/methodology";
 
 const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
 const sevRank = (s: string) => SEVERITIES.indexOf(s as (typeof SEVERITIES)[number]);
@@ -71,7 +71,7 @@ export function ReportView({ report }: { report: ScanReport }) {
       {score && (
         <section aria-labelledby="score-h" className="space-y-4">
           <h2 id="score-h" className="sr-only">Risk score</h2>
-          {score.provisional && (
+          {isProvisional(score.coverage) && (
             <div role="note" className="flex gap-3 rounded-lg border border-sev-medium/50 bg-sev-medium/10 p-4 text-sm">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-sev-medium" aria-hidden />
               <p><strong>Provisional result.</strong> Only {Math.round(score.coverage * 100)}% of the methodology could be evaluated. Categories without data are <strong>not</strong> assumed safe. This is not a complete security assessment.</p>
@@ -84,7 +84,7 @@ export function ReportView({ report }: { report: ScanReport }) {
             </div>
           )}
           <div className="grid gap-6 sm:grid-cols-[auto_1fr]">
-            <RiskScore score={score.overall} coverage={score.coverage} provisional={score.provisional} level={score.level as RiskLevel} />
+            <RiskScore score={score.overall} coverage={score.coverage} level={score.level as RiskLevel} />
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
                 The score runs from 0 to 100. A higher score means more detected risk, not a better token.{" "}

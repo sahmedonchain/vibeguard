@@ -5,6 +5,7 @@ import { SeverityBadge } from "@/components/shared/severity-badge";
 import { shortenAddress } from "@/components/shared/address-display";
 import { FreshnessLabel } from "@/components/shared/freshness-label";
 import { HoldersChart } from "@/components/report/holders-chart";
+import { isProvisional } from "@/lib/risk-engine/methodology";
 import { ROUTE_LIST } from "@/lib/routes";
 
 describe("risk score", () => {
@@ -24,6 +25,29 @@ describe("risk score", () => {
   });
   it("shows coverage separately", () => {
     expect(renderToStaticMarkup(<RiskScore score={10} coverage={0.4} />)).toContain("Coverage 40%");
+  });
+  it("labels the band provisional in a neutral colour when coverage is below 100%", () => {
+    const html = renderToStaticMarkup(<RiskScore score={34} coverage={0.55} level="moderate" />);
+    expect(html).toContain("Moderate observed risk · provisional");
+    expect(html).toContain("Coverage 55%");
+    expect(html).toContain("text-muted-foreground border-border");
+    expect(html).not.toContain("text-sev-");
+  });
+  it("keeps the critical colour and still appends provisional when a critical finding forces the level", () => {
+    const html = renderToStaticMarkup(<RiskScore score={34} coverage={0.55} level="critical" />);
+    expect(html).toContain("text-sev-critical");
+    expect(html).toContain("· provisional");
+    expect(html).not.toContain("text-muted-foreground border-border");
+  });
+  it("is provisional for any coverage below 100%", () => {
+    expect(isProvisional(0.95)).toBe(true);
+    expect(isProvisional(1)).toBe(false);
+    expect(isProvisional(undefined)).toBe(false);
+  });
+  it("keeps the severity colour and plain band at full coverage", () => {
+    const html = renderToStaticMarkup(<RiskScore score={34} coverage={1} level="moderate" />);
+    expect(html).toContain("text-sev-medium");
+    expect(html).not.toMatch(/provisional/i);
   });
 });
 

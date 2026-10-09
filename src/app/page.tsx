@@ -98,7 +98,7 @@ export default function Home() {
           <Card aria-label="Example report, illustrative data" className="space-y-4">
             <Badge className="border-sev-medium/60 text-sev-medium">Example — illustrative data, not a real token</Badge>
             <div className="flex items-center gap-4">
-              <RiskScore score={34} coverage={0.55} provisional level="moderate" />
+              <RiskScore score={34} coverage={0.55} level="moderate" />
               <p className="text-sm text-muted-foreground">Provisional: only part of the methodology could be evaluated. Unchecked categories are not assumed safe.</p>
             </div>
             <div className="space-y-2 text-sm">

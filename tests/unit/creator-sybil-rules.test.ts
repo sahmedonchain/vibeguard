@@ -159,17 +159,17 @@ describe("VG-SUS-001 / VG-SUS-002 coordination", () => {
 });
 
 describe("coverage with phase 3 rules", () => {
-  it("rises to 85% and is no longer provisional when every input is available", () => {
+  it("rises to 85% and is still provisional because coverage is below 100%", () => {
     const s = computeScore(evaluateRules(ctx({ creator: creator({ sellDown: null }) })));
     expect(s.coverage).toBe(0.85);
-    expect(s.provisional).toBe(false);
+    expect(s.provisional).toBe(true);
     expect(s.categories.find((c) => c.category === "creator")!.coverage).toBe(1);
     expect(s.categories.find((c) => c.category === "suspicious")!.coverage).toBe(1);
   });
   it("falls back to provisional when the explorer fails (creator and funding unknown)", () => {
     const s = computeScore(evaluateRules(ctx({ creator: creator({ explorerAvailable: false }), sybil: sybil({ fundingResolved: 0, explorerAvailable: false }) })));
     expect(s.provisional).toBe(true);
-    expect(s.coverage).toBeLessThan(0.8);
+    expect(s.coverage).toBeLessThan(0.85);
     expect(s.categories.find((c) => c.category === "creator")!.unknown).toEqual(["VG-CRT-001", "VG-CRT-002"]);
   });
   it("detected creator and coordination findings raise the score", () => {

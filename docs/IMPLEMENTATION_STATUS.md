@@ -31,7 +31,7 @@ Updated 2026-10-10 (phase 3).
 - [ ] 5.2 network selector (single network), pagination/virtualized lists (no long lists yet), wallet/creator "unavailable" states exist as coming-soon only
 
 ### Partial / not done in phase 2 (status after phase 3)
-- [x] Creator category: rules VG-CRT-001…003 (phase 3). Suspicious category: coordination rules VG-SUS-001…002 only (phase 3); the remaining SRS 15.2 rules are phase 4. Liquidity: still no rules (no verified market data). Max coverage is now 85%, results are no longer provisional when all inputs are available.
+- [x] Creator category: rules VG-CRT-001…003 (phase 3). Suspicious category: coordination rules VG-SUS-001…002 only (phase 3); the remaining SRS 15.2 rules are phase 4. Liquidity: still no rules (no verified market data). Max coverage is now 85%. Methodology 1.1.1: any coverage below 100% is provisional, so every result is currently provisional.
 - [ ] Holder classification: top 50 holders only; contracts labelled only when they are the token or its creating contract; pools/curves/vaults cannot be identified
 - [ ] No automatic token discovery (owner decision); factory env var unused
 - [ ] Integration tests are not in CI (they hit live RPC/DB); CI runs typecheck, lint, unit, build, e2e (API tests skip without DB)

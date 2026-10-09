@@ -14,6 +14,7 @@ import { LIMITS } from "@/lib/api/rate-limit";
 import { createChainClient } from "@/lib/chain/client";
 import { getChainConfig } from "@/lib/chain/config";
 import { isEvmAddress } from "@/lib/chain/explorer";
+import { isProvisional } from "@/lib/risk-engine/methodology";
 import { safeText } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +88,7 @@ export default async function CreatorPage({ params }: PageProps<"/creator/[addre
               <thead className="bg-muted text-xs uppercase text-muted-foreground"><tr><th scope="col" className="px-3 py-2">Token</th><th scope="col" className="px-3 py-2">Latest scan</th><th scope="col" className="px-3 py-2 text-right">Report</th></tr></thead>
               <tbody>
                 {p.knownTokens.map((t) => (
-                  <tr key={t.address} className="border-t border-border"><td className="px-3 py-2"><span className="mr-2">{safeText(t.name, 40) || "Unnamed"} {t.symbol && <span className="text-muted-foreground">({safeText(t.symbol, 12)})</span>}</span><AddressDisplay address={t.address} kind="contract" /></td><td className="px-3 py-2">{t.scan ? `${t.scan.level}${t.scan.overall !== null ? ` · ${t.scan.overall.toFixed(1)}` : ""}${t.scan.provisional ? " (provisional)" : ""}` : "Not scanned"}</td><td className="px-3 py-2 text-right"><Link className="underline" href={`/token/${t.address}`}>Open</Link></td></tr>
+                  <tr key={t.address} className="border-t border-border"><td className="px-3 py-2"><span className="mr-2">{safeText(t.name, 40) || "Unnamed"} {t.symbol && <span className="text-muted-foreground">({safeText(t.symbol, 12)})</span>}</span><AddressDisplay address={t.address} kind="contract" /></td><td className="px-3 py-2">{t.scan ? `${t.scan.level}${t.scan.overall !== null ? ` · ${t.scan.overall.toFixed(1)}` : ""}${isProvisional(t.scan.coverage) ? " (provisional)" : ""}` : "Not scanned"}</td><td className="px-3 py-2 text-right"><Link className="underline" href={`/token/${t.address}`}>Open</Link></td></tr>
                 ))}
               </tbody>
             </table>

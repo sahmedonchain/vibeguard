@@ -157,7 +157,7 @@ describe("score", () => {
     expect(s.level).toBe("critical");
     expect(s.overall!).toBeLessThan(80);
   });
-  it("clean token is low risk but still provisional", () => {
+  it("clean token is low risk but still provisional (coverage below 100%)", () => {
     const s = computeScore(evaluateRules(ctx({ contract: contract({ source: { checked: true, verified: true, name: "T" } }) })));
     expect(s.level).toBe("low");
     expect(s.overall).toBe(0);
