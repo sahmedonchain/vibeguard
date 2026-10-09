@@ -1,36 +1,36 @@
 import Link from "next/link";
-import { ArrowRight, Eye, FileSearch, Scale, ShieldAlert, Users } from "lucide-react";
+import { ArrowRight, Code2, Eye, FileSearch, Scale, ShieldAlert, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PHASE_NAMES } from "@/lib/routes";
+import { SeverityBadge } from "@/components/shared/severity-badge";
+import { RiskScore } from "@/components/shared/risk-score";
+import { ROUTES } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
-const CHECKS = [
-  { icon: FileSearch, title: "Contract analysis", body: "Owner and role powers, mint, pause, blacklist, proxy upgradeability, and fee controls, read from bytecode and verified source." },
-  { icon: Scale, title: "Holder concentration", body: "Top-holder share computed from transfer history, with contracts, pools, and burn addresses classified, never silently excluded." },
-  { icon: Users, title: "Creator & sybil signals", body: "Deployment history and funding facts, kept separate from inferences. Labeled only as possible coordination." },
-  { icon: Eye, title: "Whale & activity tracking", body: "Large transfers and wallet activity with block and time shown. A transfer is not treated as a trade." },
+const TOOLS = [
+  { icon: FileSearch, route: ROUTES.scan, body: "Contract permissions, ownership, proxy upgradeability, holder concentration and supply integrity, each with evidence." },
+  { icon: Scale, route: ROUTES.methodology, body: "Weights, thresholds and every rule are public. Unknown is never treated as safe." },
+  { icon: Users, route: ROUTES.sybil, body: "Possible coordination between wallets, with confidence and alternative explanations." },
+  { icon: Eye, route: ROUTES.whales, body: "Large transfers and holder balance changes with block and time." },
+  { icon: Code2, route: ROUTES.developers, body: "A versioned JSON API for the same reports." },
+  { icon: ShieldAlert, route: ROUTES.doctor, body: "Pre-launch static checks for contracts you deploy." },
 ] as const;
 
 const STEPS = [
-  { n: "1", title: "Submit an address", body: "Paste a token contract address from Robinhood Chain Testnet." },
-  { n: "2", title: "We read the chain", body: "Findings come from on-chain data. Each finding links to its evidence." },
-  { n: "3", title: "Score with coverage", body: "Risk and data coverage are reported separately. Unknown never means safe." },
+  { n: "1", title: "Submit a token address", body: "Paste an ERC-20 contract address from Robinhood Chain Testnet." },
+  { n: "2", title: "VibeGuard reads the chain", body: "A background worker reads the contract and indexes its transfers. Every finding links to its evidence." },
+  { n: "3", title: "Score with coverage", body: "Risk and data coverage are reported separately. Partial results are labeled provisional." },
 ] as const;
-
-const LIVE_PHASES = [1, 2, 3, 4, 5, 6] as const;
 
 export default function Home() {
   return (
     <>
       <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-24">
         <Badge className="mb-4 text-muted-foreground">Robinhood Chain Testnet · Early build</Badge>
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
-          Check a VibeVibe token before you trade it.
-        </h1>
+        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">Know the Risk Behind Every Token.</h1>
         <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-          VibeGuard turns on-chain data into evidence-backed risk findings. Every claim links to the transaction, contract, or
-          block it came from.
+          Investigate tokens, wallets and on-chain activity across the VibeVibe ecosystem with transparent risk signals and evidence-backed intelligence.
         </p>
         <form action="/scan" method="get" className="mt-8 flex max-w-2xl flex-col gap-2 sm:flex-row">
           <label htmlFor="address" className="sr-only">Token contract address</label>
@@ -45,23 +45,29 @@ export default function Home() {
             spellCheck={false}
             className="h-10 flex-1 rounded-md border border-border bg-card px-3 font-mono text-sm placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
           />
-          <Button type="submit">Scan token <ArrowRight className="size-4" aria-hidden /></Button>
+          <button type="submit" className={cn(buttonVariants())}>Scan a Token <ArrowRight className="size-4" aria-hidden /></button>
         </form>
-        <p className="mt-3 text-sm text-muted-foreground">
-          The scanner is not live yet. It arrives in phase 2 ({PHASE_NAMES[2]}).
+        <p className="mt-3 text-sm">
+          <Link href="/ecosystem" className="text-muted-foreground underline">Explore Ecosystem</Link>
+          <span className="text-muted-foreground"> (not built yet)</span>
         </p>
       </section>
 
       <section className="border-t border-border bg-card/40">
         <div className="mx-auto w-full max-w-6xl px-4 py-14">
-          <h2 className="text-2xl font-semibold">What VibeGuard looks at</h2>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {CHECKS.map(({ icon: Icon, title, body }) => (
-              <Card key={title}>
-                <Icon className="mb-3 size-5 text-primary" aria-hidden />
-                <h3 className="font-medium">{title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-              </Card>
+          <h2 className="text-2xl font-semibold">Security tools</h2>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {TOOLS.map(({ icon: Icon, route, body }) => (
+              <Link key={route.path} href={route.path} className="group rounded-lg focus-visible:outline-2 focus-visible:outline-ring">
+                <Card className="h-full transition-colors group-hover:border-primary/60">
+                  <div className="flex items-center justify-between">
+                    <Icon className="size-5 text-primary" aria-hidden />
+                    {"live" in route && route.live ? <Badge className="text-sev-low">Live</Badge> : <Badge className="text-muted-foreground">Phase {route.phase}</Badge>}
+                  </div>
+                  <h3 className="mt-3 font-medium">{route.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>
@@ -83,31 +89,42 @@ export default function Home() {
       </section>
 
       <section className="border-t border-border bg-card/40">
-        <div className="mx-auto w-full max-w-6xl px-4 py-14">
-          <h2 className="flex items-center gap-2 text-2xl font-semibold"><ShieldAlert className="size-5 text-sev-medium" aria-hidden /> What this is not</h2>
-          <ul className="mt-4 max-w-3xl list-disc space-y-2 pl-5 text-muted-foreground">
-            <li>Not an audit. Automated checks miss things.</li>
-            <li>Not financial advice. Testnet tokens have no monetary value.</li>
-            <li>Not a safety badge. A report with no findings means no findings were detected, within the stated coverage.</li>
-            <li>Not affiliated with VibeVibe or Robinhood.</li>
-          </ul>
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 lg:grid-cols-2">
+          <div>
+            <h2 className="text-2xl font-semibold">What a report looks like</h2>
+            <p className="mt-2 text-muted-foreground">Each report shows a score, how much of the methodology could be evaluated, and findings with severity, confidence and links to on-chain evidence. The card on the right is an illustration.</p>
+            <p className="mt-3 text-sm text-muted-foreground">The methodology is public: category weights, severity points, thresholds and every rule. <Link href="/methodology" className="underline">Read the methodology</Link>.</p>
+          </div>
+          <Card aria-label="Example report, illustrative data" className="space-y-4">
+            <Badge className="border-sev-medium/60 text-sev-medium">Example — illustrative data, not a real token</Badge>
+            <div className="flex items-center gap-4">
+              <RiskScore score={34} coverage={0.55} provisional level="moderate" />
+              <p className="text-sm text-muted-foreground">Provisional: only part of the methodology could be evaluated. Unchecked categories are not assumed safe.</p>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2"><SeverityBadge severity="medium" /> Contract can mint new tokens</div>
+              <div className="flex items-center gap-2"><SeverityBadge severity="low" /> Token has an active owner</div>
+              <div className="flex items-center gap-2"><SeverityBadge severity="info" /> Contracts hold 68.30% of supply</div>
+            </div>
+          </Card>
         </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-14">
-        <h2 className="text-2xl font-semibold">Build status</h2>
-        <p className="mt-2 text-muted-foreground">Features ship in phases. Only phase 1 is done.</p>
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {LIVE_PHASES.map((p) => (
-            <li key={p} className="flex items-center justify-between rounded-md border border-border px-4 py-2 text-sm">
-              <span>Phase {p}: {PHASE_NAMES[p]}</span>
-              <Badge className={p === 1 ? "text-sev-low" : "text-muted-foreground"}>{p === 1 ? "Done" : "Planned"}</Badge>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-6 text-sm text-muted-foreground">
-          See the <Link href="/methodology" className="underline">methodology</Link> page for how scoring will work.
-        </p>
+        <h2 className="text-2xl font-semibold">Developers</h2>
+        <p className="mt-2 max-w-2xl text-muted-foreground">Reports are available as JSON. The current endpoints are <code className="rounded bg-muted px-1 font-mono text-sm">POST /api/v1/scans</code>, <code className="rounded bg-muted px-1 font-mono text-sm">GET /api/v1/scans/&#123;id&#125;</code> and <code className="rounded bg-muted px-1 font-mono text-sm">GET /api/v1/tokens/&#123;address&#125;/risk</code>. Full documentation arrives in phase 5; see <Link className="underline" href="/developers/api">API reference</Link>.</p>
+      </section>
+
+      <section className="border-t border-border bg-card/40">
+        <div className="mx-auto w-full max-w-6xl px-4 py-14">
+          <h2 className="flex items-center gap-2 text-2xl font-semibold"><ShieldAlert className="size-5 text-sev-medium" aria-hidden /> Limitations</h2>
+          <ul className="mt-4 max-w-3xl list-disc space-y-2 pl-5 text-muted-foreground">
+            <li>This is a testnet product. Testnet tokens have no monetary value and results do not establish mainnet security.</li>
+            <li>VibeGuard is not an audit and not financial advice. A report with no findings means none were detected within the stated coverage.</li>
+            <li>Tokens are scanned only when you submit their address. Creator history, liquidity and suspicious-activity analysis are not available yet.</li>
+            <li>VibeGuard is independent. It is not affiliated with VibeVibe or Robinhood.</li>
+          </ul>
+        </div>
       </section>
     </>
   );

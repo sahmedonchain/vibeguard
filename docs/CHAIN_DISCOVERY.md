@@ -23,9 +23,21 @@ VibeVibe testnet (https://testnet.vibevibe.fun/) identifies itself as "vibe/vibe
 
 ## Observed (not documented)
 
-- `eth_getLogs` on the public RPC: a range over **30,000 blocks** is rejected unless an address filter is given (`only 30000 are allowed for this request; narrow the block range, or add an address filter`). A result set over **10,000 logs** is rejected (`logs matched by query exceeds limit of 10000`). Both limits were seen at 2026-10-09 and may change. The indexer must adapt to these errors.
+All observations below were made on 2026-10-09/10 against the public RPC and may change. The code reads them from env and adapts.
+
+- `eth_getLogs` on the public RPC: an address-less query over **30,000 blocks** is rejected (`only 30000 are allowed for this request; narrow the block range, or add an address filter`). **With an address filter, spans of 20,000,000 blocks were accepted** (token `0xb2b4…e344`, 5.7M blocks in one call). The indexer uses `GETLOGS_ADDRESS_MAX_BLOCK_RANGE` (default 2M) and halves the range when a provider rejects it. A result set over **10,000 logs** is rejected (`logs matched by query exceeds limit of 10000`). Both limits were seen at 2026-10-09 and may change. The indexer must adapt to these errors.
 - Block numbers on the L2 are about 131.7M at probe time; average block time reported by explorer is irregular (blocks are produced on demand).
 - Public WebSocket on `/ws` returned HTTP 404. No public WS endpoint is verified.
+- Historical state (`eth_getCode`/`eth_call` at old blocks) works on the public RPC, including a binary search for the first block with code. The creation block is taken from the explorer's creation tx and confirmed with the RPC receipt.
+- Node connecting to the Postgres host (Neon) from a dual-stack machine needs `net.setDefaultAutoSelectFamilyAttemptTimeout(3000)`; the 250 ms default fails with ETIMEDOUT/ENETUNREACH.
+
+## Token population (observed)
+
+Blockscout `/api/v2/tokens?type=ERC-20&q=vibe` lists many launchpad tokens. A survey of 25 of them (analysis block 131.77M) found every one to be a plain ERC-20: no `owner()`, no proxy, no mint/pause/blacklist/fee selectors, all unverified source. Creation transactions come from user EOAs through launchpad contracts (`0x40f1…`, `0xe794…`, `0x2784…`), so the *creation tx sender* is the user and the *immediate creator* (explorer `creator_address_hash`) is a contract. VibeGuard reports both and does not equate either with a person.
+
+Launchpad tokens commonly keep a large share of supply in contracts (the token contract itself and curve/pool-like contracts held 68–86% in the two tokens fully scanned). Reconciliation of indexed transfers against `totalSupply()` and `balanceOf()` matched exactly for both.
+
+Non-launchpad tokens on the same chain (stablecoin-like, test tokens) do expose owner, mint, pause, EIP-1967 proxies and verified ABIs; the capability detector was validated on those.
 
 ## VibeVibe contracts: UNRESOLVED
 
@@ -36,15 +48,15 @@ Observed on the explorer (not official, not confirmed as VibeVibe infrastructure
 - Token `VibeVibe (VIBES)` at `0x3c1b3e4383f3Fa90b314dD451332c86b1C779725`, 1,000,000,000 supply, created by tx `0x1e22…ef6e0` through contract `0x40f1be6faf8DAB9C143cce1a0A04c2075Fb2DF59` (method `createToken`, unverified source).
 - Many tokens named "Vibe…" exist. Several were created via contracts `0xe794217880011f9cA6961340eD5c16EC9559Fea0` (selector `0x24e615b3`) and `0x2784448c519D01d3aE257C0aac0b7cDAd8AccEB1` (selector `0x0f5a5d1a`), all with unverified source. A launchpad may use these, but nothing links them to VibeVibe.
 
-Do not treat these as the factory. Phase 2 plan: user-submitted token addresses first; accept a factory only after the user confirms it, set via `VIBEVIBE_FACTORY_ADDRESS`.
+**Decision (owner, 2026-10-10):** token discovery is user-submitted addresses only. `VIBEVIBE_FACTORY_ADDRESS` stays as an optional, currently unused env var.
 
 ## Unresolved list
 
 1. VibeVibe factory/launchpad address and event ABI.
 2. Numeric rate limits of the public RPC and explorer API (docs say only "rate-limited").
-3. Public WebSocket RPC (Alchemy WS needs a key).
+3. Public WebSocket RPC (Alchemy WS needs a key). Polling is used.
 4. Stable `eth_getLogs` limits (observed only).
-5. Whether the VibeVibe DEX/pool contracts (Uniswap V4 per third parties) exist on this testnet. Affects momentum/market data.
+5. Whether the VibeVibe DEX/pool contracts (Uniswap V4 per third parties) exist on this testnet. Affects liquidity and momentum; the liquidity category is reported as not assessed.
 6. Testnet faucet URL.
 
 All are exposed as env vars or reported as `unresolved` capabilities (`src/lib/chain/capabilities.ts`).

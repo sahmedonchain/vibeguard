@@ -4,19 +4,23 @@ import { RiskScore, riskBand } from "@/components/shared/risk-score";
 import { SeverityBadge } from "@/components/shared/severity-badge";
 import { shortenAddress } from "@/components/shared/address-display";
 import { FreshnessLabel } from "@/components/shared/freshness-label";
+import { HoldersChart } from "@/components/report/holders-chart";
 import { ROUTE_LIST } from "@/lib/routes";
 
 describe("risk score", () => {
   it("bands", () => {
     expect(riskBand(0)).toBe("low");
-    expect(riskBand(25)).toBe("medium");
-    expect(riskBand(50)).toBe("high");
-    expect(riskBand(75)).toBe("critical");
+    expect(riskBand(19)).toBe("low");
+    expect(riskBand(20)).toBe("moderate");
+    expect(riskBand(40)).toBe("elevated");
+    expect(riskBand(60)).toBe("high");
+    expect(riskBand(80)).toBe("critical");
+    expect(riskBand(100)).toBe("critical");
   });
   it("renders null score as N/A, never safe", () => {
     const html = renderToStaticMarkup(<RiskScore score={null} />);
     expect(html).toContain("N/A");
-    expect(html).not.toMatch(/low risk/i);
+    expect(html).not.toMatch(/low observed risk/i);
   });
   it("shows coverage separately", () => {
     expect(renderToStaticMarkup(<RiskScore score={10} coverage={0.4} />)).toContain("Coverage 40%");
@@ -33,6 +37,12 @@ describe("shared components", () => {
   it("freshness states unknown when empty", () => {
     expect(renderToStaticMarkup(<FreshnessLabel />)).toContain("unknown");
     expect(renderToStaticMarkup(<FreshnessLabel blockNumber={5} />)).toContain("Block 5");
+  });
+});
+
+describe("charts", () => {
+  it("handles empty data without throwing", () => {
+    expect(renderToStaticMarkup(<HoldersChart data={[]} />)).toContain("No holder data");
   });
 });
 

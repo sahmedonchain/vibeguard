@@ -7,9 +7,14 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+const description = "Investigate tokens on Robinhood Chain Testnet with transparent risk signals and evidence-backed intelligence. Automated analysis, not an audit.";
+
 export const metadata: Metadata = {
-  title: { default: "VibeGuard — token risk analysis for VibeVibe testnet", template: "%s · VibeGuard" },
-  description: "Evidence-backed risk analysis for tokens on Robinhood Chain Testnet. Automated analysis, not an audit.",
+  metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
+  title: { default: "VibeGuard — Know the Risk Behind Every Token", template: "%s · VibeGuard" },
+  description,
+  openGraph: { type: "website", siteName: "VibeGuard", title: "VibeGuard — Know the Risk Behind Every Token", description },
+  twitter: { card: "summary", title: "VibeGuard — Know the Risk Behind Every Token", description },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

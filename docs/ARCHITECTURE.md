@@ -7,24 +7,40 @@ Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4, shadcn/ui-st
 ## Layout
 
 ```
-src/app/            routes (App Router). Every public route exists; unbuilt ones show "Coming in phase N".
-src/components/ui/  primitives (button, card, badge)
-src/components/shared/  address display+copy, risk score, severity badge, freshness label, state components
-src/components/layout/  header, footer, mobile nav
-src/lib/routes.ts   single route registry: drives nav, footer, coming-soon pages, tests
-src/lib/chain/      chain adapter: config (zod + env), client (viem), capabilities, explorer
-src/db/             Drizzle client (lazy) and schema (empty until phase 2)
-worker/             (phase 2) separate indexer process, not serverless
-tests/unit, e2e/    Vitest, Playwright
+src/app/            routes. Live: /, /scan, /token/[address], /methodology, /api/v1/*. Others show "Coming in phase N".
+src/components/     ui (primitives), shared (address, tx, risk score, severity, freshness, states, tooltip, network badge), report (report view, finding/evidence cards, holders chart, scan controls), layout
+src/lib/routes.ts   route registry: nav, footer, coming-soon pages, tests
+src/lib/chain/      config (zod/env), client (viem), capabilities, explorer URLs, optional Blockscout API adapter
+src/lib/contracts/  selector table, bytecode scan, proxy detection, contract analysis
+src/lib/indexing/   adaptive getLogs, Transfer decoding, balances, holder analysis, indexer (checkpoint/reorg), creation lookup
+src/lib/risk-engine/ methodology constants, rule registry + rules, evaluation and scoring (pure)
+src/lib/scans/      queue (create/claim), runner, report assembly, reference-data setup
+src/lib/api/        error codes, envelope, schemas, rate limiter, handler pipeline
+src/db/             Drizzle schema and lazy client
+worker/             index.ts (queue worker), scan-cli.ts (run one scan locally)
+drizzle/            SQL migrations
+tests/unit, tests/integration, e2e/
 ```
 
 ## Chain adapter
 
 EVM was confirmed (see CHAIN_DISCOVERY.md), so Viem is used. All chain values come from `parseChainConfig(env)`. Verified values are defaults; unverified values (factory address, WS URL) have no default and the capability is reported `unresolved`. The adapter never invents data. `getLogsMaxBlockRange` is configurable because the limit is only observed.
 
-## Data flow (planned)
+## Data flow (implemented)
 
-worker indexes logs/blocks -> Postgres -> risk engine (pure, deterministic, versioned) -> API routes + pages. Web tier reads the DB only. RPC calls from the web tier are limited to on-demand reads.
+```
+user/API --POST /api/v1/scans--> web tier: validate, rate limit (Postgres), enqueue (or reuse active/recent scan)
+worker: claim queued scan (SKIP LOCKED) -> pin analysis block (head - confirmations)
+        -> contract analysis at that block (code, ERC-20 calls, owner, proxy slots, selectors, optional verified ABI)
+        -> index Transfer events from creation block (address-filtered, adaptive ranges, checkpoint, reorg rewind, time budget)
+        -> balances -> holder classification -> reconciliation against totalSupply()/balanceOf()
+        -> rules -> score -> persist (one transaction) -> status completed|partial|unsupported|failed
+web tier: /token/[address] and GET endpoints read the DB; the page polls via router.refresh() while queued/running
+```
+
+The web tier never runs a scan and never calls the RPC except `/api/v1/health`. Heavy work is bounded by `INDEXER_SCAN_BUDGET_MS`; an unfinished index yields a partial scan with unknown holder rules, never a guessed one.
+
+Reproducibility: all state reads use the pinned analysis block. Scores are derived only from the stored context; the engine has no clock or randomness.
 
 ## Decisions
 
@@ -34,6 +50,9 @@ worker indexes logs/blocks -> Postgres -> risk engine (pure, deterministic, vers
 - Address route params are validated with Viem `isAddress`; invalid input returns 404.
 - Address strings are rendered as text only; token metadata will be treated as untrusted.
 
-## Spec gap
+## Operational notes
 
-`docs/MASTER_SRS.md` is the six-phase prompt document. It does not contain the numbered sections the prompt references (5.1 routes, 6 landing, 8.3 scoring, 29 error codes, 35 report format). Routes were derived from the phase prompts; the landing page follows the prompt text. Supply the full SRS to settle these.
+- Queue is DB-backed (no Redis; SRS 4.4 allows it). Stale `running` scans (> 10 min) are returned to the queue.
+- Rate limiter is Postgres-backed (fixed window, HMAC of client IP) so it holds across serverless instances. It fails open if the DB errors.
+- Postgres from some hosts needs a longer IPv4/IPv6 attempt timeout; set in `src/db/client.ts`.
+- Token discovery: user-submitted addresses only (owner decision 2026-10-10). The factory env var is optional and unused.

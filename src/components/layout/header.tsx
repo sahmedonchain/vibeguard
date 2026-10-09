@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { MORE_NAV, PRIMARY_NAV } from "./nav-links";
+import { NetworkBadge } from "@/components/shared/network-badge";
 import { MobileNav } from "./mobile-nav";
 
 export function Header() {
@@ -18,7 +19,10 @@ export function Header() {
             </Link>
           ))}
         </nav>
-        <MobileNav items={all} />
+        <div className="flex items-center gap-2">
+          <NetworkBadge />
+          <MobileNav items={all} />
+        </div>
       </div>
     </header>
   );

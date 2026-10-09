@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "scans_active_uq" ON "scans" USING btree ("chain_id","token_address") WHERE "scans"."status" in ('queued','running');

@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "node --network-family-autoselection-attempt-timeout=3000 --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs migrate",
+    "worker": "tsx --env-file-if-exists=.env.local worker/index.ts",
+    "scan": "tsx --env-file-if-exists=.env.local worker/scan-cli.ts",
+    "test:integration": "node --network-family-autoselection-attempt-timeout=3000 --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config vitest.integration.config.mts"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
@@ -23,6 +26,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "recharts": "3.10.1",
+    "server-only": "0.0.1",
     "tailwind-merge": "3.7.0",
     "viem": "2.57.4",
     "zod": "4.6.5"
@@ -39,6 +43,7 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.3"
   },

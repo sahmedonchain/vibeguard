@@ -15,19 +15,19 @@ describe("chain config", () => {
     expect(c.vibevibeFactory).toBeUndefined();
   });
   it("treats empty env strings as unset", () => {
-    const c = parseChainConfig({ RPC_WS_URL: "", VIBEVIBE_FACTORY_ADDRESS: "" });
+    const c = parseChainConfig({ VIBEVIBE_RPC_WS_URL: "", VIBEVIBE_FACTORY_ADDRESS: "" });
     expect(c.rpcWsUrl).toBeUndefined();
     expect(c.vibevibeFactory).toBeUndefined();
   });
   it("accepts overrides and strips trailing slash", () => {
     const addr = "0x" + "a".repeat(40);
-    const c = parseChainConfig({ NEXT_PUBLIC_EXPLORER_URL: "https://x.example/", VIBEVIBE_FACTORY_ADDRESS: addr, VIBEVIBE_FACTORY_START_BLOCK: "5" });
+    const c = parseChainConfig({ VIBEVIBE_EXPLORER_URL: "https://x.example/", VIBEVIBE_FACTORY_ADDRESS: addr, VIBEVIBE_FACTORY_START_BLOCK: "5" });
     expect(c.explorerUrl).toBe("https://x.example");
     expect(c.vibevibeFactory).toEqual({ address: addr, startBlock: 5 });
   });
   it("rejects invalid values", () => {
     expect(() => parseChainConfig({ VIBEVIBE_FACTORY_ADDRESS: "0x123" })).toThrow();
-    expect(() => parseChainConfig({ RPC_HTTP_URL: "not a url" })).toThrow();
+    expect(() => parseChainConfig({ VIBEVIBE_RPC_HTTP_URL: "not a url" })).toThrow();
   });
   it("builds a viem chain from config", () => {
     const chain = buildChain(parseChainConfig({}));

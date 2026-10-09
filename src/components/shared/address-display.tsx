@@ -9,10 +9,11 @@ export function shortenAddress(address: string, head = 6, tail = 4): string {
 }
 
 /** Address text is untrusted; it is rendered as plain text only. */
-export function AddressDisplay({ address, full = false, className }: { address: string; full?: boolean; className?: string }) {
+export function AddressDisplay({ address, full = false, kind, className }: { address: string; full?: boolean; kind?: "contract" | "wallet" | "burn"; className?: string }) {
   const href = explorerUrls(getChainConfig().explorerUrl).address(address);
   return (
-    <span className={cn("inline-flex items-center gap-1 font-mono text-sm", className)}>
+    <span className={cn("inline-flex flex-wrap items-center gap-1 font-mono text-sm", className)}>
+      {kind && <span className="rounded border border-border px-1 font-sans text-[10px] uppercase tracking-wide text-muted-foreground">{kind}</span>}
       <span title={address} className={full ? "break-all" : undefined}>{full ? address : shortenAddress(address)}</span>
       <CopyButton value={address} label="Copy address" />
       <a href={href} target="_blank" rel="noopener noreferrer" aria-label="View on explorer" className="text-muted-foreground hover:text-foreground">
